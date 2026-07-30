@@ -6,3 +6,9 @@ DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
+MacCopy.app/
+*.zip
+*.iconset
+*.jpg
+*.png
+test_*.swift

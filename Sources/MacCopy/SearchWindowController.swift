@@ -3,7 +3,16 @@ import CoreGraphics
 
 class SearchPanel: NSPanel {
     override var canBecomeKey: Bool { return true }
-    override var canBecomeMain: Bool { return true }
+    override var canBecomeMain: Bool { return false }
+    
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let windowController = self.windowController as? SearchWindowController {
+            if windowController.handleKeyDown(event) {
+                return true
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 class CustomTableRowView: NSTableRowView {
@@ -115,6 +124,7 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         super.init(window: window)
         window.delegate = self
         NotificationCenter.default.addObserver(self, selector: #selector(appDidResignActive), name: NSApplication.didResignActiveNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appDidResignActive), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         setupUI()
     }
     
@@ -159,6 +169,8 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
         tableView.backgroundColor = .clear
         tableView.style = .plain
+        tableView.target = self
+        tableView.action = #selector(tableViewClicked(_:))
         
         scrollView.frame = NSRect(x: 0, y: 10, width: 350, height: 390)
         scrollView.autoresizingMask = [.width, .height]
@@ -207,30 +219,10 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
                     return event
                 }
             }
-            
-            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard let self = self else { return event }
-                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                if modifiers == .command {
-                    if let chars = event.charactersIgnoringModifiers, let num = Int(chars), num >= 1 && num <= 9 {
-                        let index = num - 1
-                        if index < self.filteredItems.count {
-                            self.tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-                            self.pasteAndHide(row: index)
-                            return nil
-                        }
-                    }
-                }
-                return event
-            }
         }
     }
     
     func hideWindow() {
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-            eventMonitor = nil
-        }
         if let monitor = globalEventMonitor {
             NSEvent.removeMonitor(monitor)
             globalEventMonitor = nil
@@ -262,6 +254,21 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         allItems = db.fetchRecent(limit: SettingsManager.shared.historyLimit)
     }
     
+    func handleKeyDown(_ event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if modifiers == .command {
+            if let chars = event.charactersIgnoringModifiers, let num = Int(chars), num >= 1 && num <= 9 {
+                let index = num - 1
+                if index < filteredItems.count {
+                    tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                    pasteAndHide(row: index)
+                    return true
+                }
+            }
+        }
+        return false
+    }
+    
     @objc private func searchTextChanged(_ sender: NSSearchField) {
         let query = sender.stringValue.lowercased()
         if query.isEmpty {
@@ -270,6 +277,13 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
             filteredItems = allItems.filter { $0.content.lowercased().contains(query) }
         }
         tableView.reloadData()
+    }
+    
+    @objc private func tableViewClicked(_ sender: Any) {
+        let row = tableView.clickedRow
+        if row >= 0 && row < filteredItems.count {
+            pasteAndHide(row: row)
+        }
     }
     
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -423,7 +437,7 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         pasteToPasteboard(item: item)
         hideWindow()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let src = CGEventSource(stateID: .hidSystemState)
             let cmdVDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)
             cmdVDown?.flags = .maskCommand

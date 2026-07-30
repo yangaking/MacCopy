@@ -16,6 +16,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, ClipboardMonitorDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        
+        if !accessEnabled {
+            let alert = NSAlert()
+            alert.messageText = "Accessibility Permission Required"
+            alert.informativeText = "MacCopy requires Accessibility permissions to automatically paste clipboard items. Please grant permission in System Settings -> Privacy & Security -> Accessibility, then restart the app."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+        
         db = DatabaseManager()
         
         searchWindowController = SearchWindowController(db: db)
