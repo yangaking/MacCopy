@@ -29,7 +29,7 @@ open MacCopy.app
 - Swift 5.0+
 
 ### License
-MIT License
+Apache License 2.0
 
 ---
 
@@ -58,4 +58,4 @@ open MacCopy.app
 - Swift 5.0 及以上
 
 ### 开源协议
-MIT License
+Apache License 2.0
