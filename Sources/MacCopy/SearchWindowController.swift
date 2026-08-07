@@ -90,10 +90,10 @@ class CustomTableCellView: NSTableCellView {
     }
 }
 
-class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSWindowDelegate {
+class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate, NSWindowDelegate {
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
-    private let searchField = NSSearchField()
+    private let searchField = NSTextField()
     
     private var db: DatabaseManager
     private var allItems: [(id: Int, content: String, type: String)] = []
@@ -142,21 +142,45 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         visualEffect.autoresizingMask = [.width, .height]
         window.contentView = visualEffect
         
-        // Search Field exactly at top
-        searchField.frame = NSRect(x: 10, y: 415, width: 330, height: 22)
+        // Modern Search Container
+        let searchContainer = NSView(frame: NSRect(x: 10, y: 408, width: 330, height: 32))
+        searchContainer.wantsLayer = true
+        searchContainer.layer?.cornerRadius = 8
+        searchContainer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.15).cgColor
+        
+        searchContainer.layer?.shadowColor = NSColor.black.cgColor
+        searchContainer.layer?.shadowOpacity = 0.2
+        searchContainer.layer?.shadowOffset = NSSize(width: 0, height: -2)
+        searchContainer.layer?.shadowRadius = 4
+        searchContainer.autoresizingMask = [.width, .minYMargin]
+        visualEffect.addSubview(searchContainer)
+        
+        // Search Field inside container
+        searchField.frame = NSRect(x: 32, y: 5, width: 290, height: 22)
         searchField.autoresizingMask = [.width, .minYMargin]
-        searchField.target = self
-        searchField.action = #selector(searchTextChanged(_:))
         searchField.delegate = self
-        searchField.isBordered = true
-        searchField.bezelStyle = .roundedBezel
+        searchField.isBordered = false
+        searchField.isBezeled = false
+        searchField.drawsBackground = false
         searchField.focusRingType = .none
         searchField.placeholderString = "搜索..."
-        visualEffect.addSubview(searchField)
+        searchField.font = NSFont.systemFont(ofSize: 14)
+        searchContainer.addSubview(searchField)
         
-        let separator = NSBox(frame: NSRect(x: 0, y: 400, width: 350, height: 1))
+        // Search Icon
+        let searchIcon = NSImageView(frame: NSRect(x: 10, y: 8, width: 16, height: 16))
+        if #available(macOS 11.0, *) {
+            searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        } else {
+            searchIcon.image = NSImage(named: NSImage.touchBarSearchTemplateName)
+        }
+        searchIcon.contentTintColor = NSColor.secondaryLabelColor
+        searchContainer.addSubview(searchIcon)
+        
+        let separator = NSBox(frame: NSRect(x: 10, y: 395, width: 330, height: 1))
         separator.boxType = .separator
         separator.autoresizingMask = [.width, .minYMargin]
+        separator.alphaValue = 0.5
         visualEffect.addSubview(separator)
         
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("ContentColumn"))
@@ -269,8 +293,9 @@ class SearchWindowController: NSWindowController, NSTableViewDataSource, NSTable
         return false
     }
     
-    @objc private func searchTextChanged(_ sender: NSSearchField) {
-        let query = sender.stringValue.lowercased()
+    func controlTextDidChange(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField, field == searchField else { return }
+        let query = field.stringValue.lowercased()
         if query.isEmpty {
             filteredItems = allItems
         } else {
