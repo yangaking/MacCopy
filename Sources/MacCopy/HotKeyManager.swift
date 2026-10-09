@@ -45,7 +45,7 @@ class HotKeyManager {
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         
         let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
+            tap: .cghidEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: mask,
