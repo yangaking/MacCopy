@@ -13,6 +13,18 @@ class HotKeyManager {
     private var currentHotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     
+    private var lastActionTime: Date = .distantPast
+    
+    func triggerAction() {
+        let now = Date()
+        if now.timeIntervalSince(lastActionTime) > 0.3 {
+            lastActionTime = now
+            DispatchQueue.main.async {
+                self.action?()
+            }
+        }
+    }
+    
     func reloadHotKey() {
         // Clear existing tap
         if let runLoopSource = runLoopSource {
@@ -56,9 +68,7 @@ class HotKeyManager {
                     let expectedFlags = ref.carbonToCGModifiers(SettingsManager.shared.hotkeyModifiers)
                     
                     if key == expectedCode && flags == expectedFlags {
-                        DispatchQueue.main.async {
-                            ref.action?()
-                        }
+                        ref.triggerAction()
                         return nil // Swallow the event
                     }
                 }
@@ -74,7 +84,7 @@ class HotKeyManager {
             CGEvent.tapEnable(tap: tap, enable: true)
             print("Successfully registered CGEventTap hotkey.")
         } else {
-            print("CGEventTap failed (likely missing Accessibility). Falling back to Carbon RegisterEventHotKey.")
+            print("CGEventTap failed (likely missing Accessibility).")
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.messageText = "快捷键引擎降级警告 (Accessibility Revoked)"
@@ -83,8 +93,11 @@ class HotKeyManager {
                 alert.addButton(withTitle: "我知道了")
                 alert.runModal()
             }
-            registerCarbonFallback()
         }
+        
+        // ALWAYS register Carbon fallback
+        // This solves the Secure Input Mode issue (like password fields) where CGEventTap is forcefully blinded by macOS.
+        registerCarbonFallback()
     }
     
     private func registerCarbonFallback() {
@@ -100,9 +113,7 @@ class HotKeyManager {
         if eventHandler == nil {
             var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
             let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
-                Task { @MainActor in
-                    HotKeyManager.shared.action?()
-                }
+                HotKeyManager.shared.triggerAction()
                 return noErr
             }
             InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, &eventHandler)
