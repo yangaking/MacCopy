@@ -30,7 +30,7 @@ class HotKeyManager {
             currentHotKeyRef = nil
         }
         
-        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.tapDisabledByTimeout.rawValue)
+        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -75,6 +75,14 @@ class HotKeyManager {
             print("Successfully registered CGEventTap hotkey.")
         } else {
             print("CGEventTap failed (likely missing Accessibility). Falling back to Carbon RegisterEventHotKey.")
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "快捷键引擎降级警告 (Accessibility Revoked)"
+                alert.informativeText = "由于软件版本更新，macOS 在底层撤销了 MacCopy 的辅助功能权限（即使系统设置里仍然显示打勾）。这导致底层快捷键拦截引擎（CGEventTap）启动失败，已降级为旧版引擎，因此 Option 组合键在部分输入框依然会失效。\n\n请前往「系统设置 -> 隐私与安全性 -> 辅助功能」，选中 MacCopy 点击「-」号删除，然后重新添加并打勾，最后重启 MacCopy 即可彻底解决此问题。"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "我知道了")
+                alert.runModal()
+            }
             registerCarbonFallback()
         }
     }

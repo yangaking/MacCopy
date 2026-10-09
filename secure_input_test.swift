@@ -1,0 +1,2 @@
+import Carbon
+print(IsSecureEventInputEnabled())
