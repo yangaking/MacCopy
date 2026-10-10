@@ -39,9 +39,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ClipboardMonitorDelegate {
         HotKeyManager.shared.action = { [weak self] in
             self?.togglePopover(nil)
         }
-        HotKeyManager.shared.action = { [weak self] in
-            self?.togglePopover(nil)
-        }
         HotKeyManager.shared.reloadHotKey()
         
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
